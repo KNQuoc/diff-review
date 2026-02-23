@@ -8,7 +8,9 @@ Interactive code diff review in Discord with reaction-based pagination.
 - After making code changes, BEFORE committing (when user wants to review)
 - When user asks to see what changed
 
-## Command: `!diff`
+## Command: `show diff`
+
+Triggers: `show diff`, `diff`, `show me the changes`, `review changes`
 
 When the user triggers a diff review:
 

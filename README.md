@@ -47,9 +47,9 @@ The skill uses your existing OpenClaw Discord bot token — no extra setup neede
 
 ## Usage
 
-### Command: `!diff`
+### Command: `show diff`
 
-Type `!diff` in your Discord channel and your OpenClaw agent will:
+Type `show diff` (or `diff`, `show me the changes`, `review changes`) in your Discord channel and your OpenClaw agent will:
 
 1. Parse all uncommitted changes in the current repo
 2. Post a summary + the first file's diff
