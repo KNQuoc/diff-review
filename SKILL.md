@@ -1,55 +1,103 @@
 # Diff Review Skill
 
-Interactive code diff review in Discord with pagination.
+Interactive code diff review in Discord with reaction-based pagination.
 
 ## When to Use
 
-After making code changes, BEFORE committing. Post diffs for review so the user can browse files.
+- When the user says `!diff`, `show diff`, `show me the changes`, or similar
+- After making code changes, BEFORE committing (when user wants to review)
+- When user asks to see what changed
 
-## Workflow
+## Command: `!diff`
 
-### 1. Generate diff data
+When the user triggers a diff review:
 
-Run the diff script to parse `git diff` into a state file:
+### 1. Determine the repo
 
-```
+Use the repo the user is currently working in. If unclear, ask.
+
+### 2. Generate diff data
+
+```bash
 node <skill_dir>/diff-review.mjs <repo_path> [commit_message]
 ```
 
 This creates `<workspace>/diff-state.json` with parsed file diffs.
 
-### 2. Post the first file
+If there are no changes, tell the user "No uncommitted changes to review."
 
-Read `diff-state.json`. Post a summary + first file diff using the `message` tool:
+### 3. Post the summary message
 
-- **Summary message**: file list with stats, current file indicator
-- **Diff message**: code block with the current file's diff content
-- Add reactions: ◀️ ▶️ on the diff message for navigation
+Send to the current Discord channel:
 
-Save the message IDs back to `diff-state.json`.
+```
+📊 **Diff Review** — `<branch>` — *<commit message if any>*
+<N> files changed, `+<additions> -<deletions>`
 
-### 3. Handle navigation
+▶ `+<add> -<del>` <filename1>
+　 `+<add> -<del>` <filename2>
+　 `+<add> -<del>` <filename3>
+```
 
-When the user reacts ▶️ or ◀️ (or says "next"/"prev"):
-1. Read `diff-state.json`, update `currentFileIndex` / `currentPage`
-2. **Edit** the existing diff message with the new file content using `message` tool `edit` action
-3. **Edit** the summary message to update the current file indicator
-4. Save state
+The `▶` marker shows which file is currently displayed.
 
-### 4. Done
+### 4. Post the diff message
 
-When the user is satisfied, commit and push as normal. Delete `diff-state.json`.
+```
+📄 **<short_filename>** [<file_index>/<total_files>]
+​```diff
+<diff content>
+​```
+React ◀️ ▶️ to navigate files
+```
 
-## State File Format
+### 5. Add reactions
+
+Add ◀️ and ▶️ reactions to the diff message.
+
+### 6. Save message IDs to state
+
+Update `diff-state.json` with:
+- `summaryMessageId`: ID of the summary message
+- `diffMessageId`: ID of the diff message  
+- `channelId`: Current channel ID
+
+### 7. Start the watcher
+
+Run in background:
+
+```bash
+node <skill_dir>/diff-watcher.mjs
+```
+
+This polls Discord reactions every 750ms and handles navigation automatically.
+The watcher auto-terminates after 30 minutes.
+
+### 8. Inform the user
+
+Tell them: "Browse files with ◀️ ▶️ reactions. Let me know when you're done reviewing."
+
+## Handling Navigation Manually
+
+If the watcher isn't running or the user says "next"/"prev":
+1. Read `diff-state.json`
+2. Update `currentFileIndex` / `currentPage`
+3. Edit the summary message (move the ▶ marker)
+4. Edit the diff message (show new file content)
+5. Save state
+
+## State File
+
+Location: `<workspace>/diff-state.json`
 
 ```json
 {
-  "repo": "C:\\path\\to\\repo",
-  "branch": "sponsor-mash",
+  "repo": "/path/to/repo",
+  "branch": "main",
   "commitMessage": "feat: ...",
   "summaryMessageId": "123...",
   "diffMessageId": "456...",
-  "channelId": "1470492867632955485",
+  "channelId": "789...",
   "currentFileIndex": 0,
   "currentPage": 0,
   "files": [
@@ -57,34 +105,12 @@ When the user is satisfied, commit and push as normal. Delete `diff-state.json`.
       "filename": "src/lib/foo.ts",
       "additions": 10,
       "deletions": 3,
-      "pages": ["diff content page 1...", "diff content page 2..."]
+      "pages": ["diff content..."]
     }
   ]
 }
 ```
 
-## Navigation Reactions
+## Cleanup
 
-- ◀️ Previous file (or previous page if multi-page)
-- ▶️ Next file (or next page if multi-page)
-
-## Message Format
-
-### Summary
-```
-📊 **Diff Review** — `branch-name`
-3 files changed, +235 -12
-
-▶ `+89 -0` src/lib/minimax-model.ts
-   `+120 -12` src/components/ChatPanel.tsx
-   `+26 -0` src/app/api/stt/route.ts
-```
-
-### Diff (editable)
-```
-📄 **src/lib/minimax-model.ts** [1/3]
-​```diff
-+added line
--removed line
-​```
-```
+After the user is done reviewing (commits, or moves on), delete `diff-state.json`.
